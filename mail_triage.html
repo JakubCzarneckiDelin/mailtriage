@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailTriage — O365 Email Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --paper: #f5f0e8;
+    --cream: #ede8db;
+    --accent: #c0392b;
+    --gold: #d4a017;
+    --muted: #7a7468;
+    --done: #2d6a4f;
+    --done-soft: #2d6a4f18;
+    --outstanding: #c0392b;
+    --outstanding-soft: #c0392b15;
+    --border: #d4cfc5;
+    --shadow: 0 2px 12px rgba(26,26,46,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; }
+
+  /* AUTH */
+  #auth-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 2rem; background: var(--ink); position: relative; overflow: hidden;
+  }
+  #auth-screen::before {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px);
+  }
+  .auth-card {
+    background: var(--paper); border-radius: 4px; padding: 3rem 2.5rem;
+    max-width: 480px; width: 100%; position: relative; z-index: 1;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .auth-logo { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; color: var(--ink); margin-bottom: 0.25rem; }
+  .auth-logo span { color: var(--accent); }
+  .auth-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 2.5rem; font-family: 'DM Mono', monospace; letter-spacing: 0.05em; }
+  .auth-label { font-size: 0.78rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; display: block; }
+  .auth-input {
+    width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--border);
+    background: white; border-radius: 2px; font-family: 'DM Mono', monospace;
+    font-size: 0.85rem; color: var(--ink); margin-bottom: 1.25rem; transition: border-color 0.2s;
+  }
+  .auth-input:focus { outline: none; border-color: var(--ink); }
+  .auth-note {
+    font-size: 0.78rem; color: var(--muted); margin-bottom: 2rem; line-height: 1.6;
+    background: var(--cream); padding: 0.75rem 1rem; border-left: 3px solid var(--gold);
+  }
+  .auth-note a { color: var(--accent); text-decoration: none; }
+  .auth-note code { font-family: 'DM Mono', monospace; background: rgba(0,0,0,0.06); padding: 0.1rem 0.3rem; border-radius: 2px; }
+  .btn-primary {
+    width: 100%; padding: 0.9rem; background: var(--ink); color: var(--paper);
+    border: none; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; font-weight: 500; cursor: pointer; letter-spacing: 0.03em; transition: background 0.2s;
+  }
+  .btn-primary:hover { background: #2d2d4e; }
+  .btn-demo {
+    width: 100%; padding: 0.75rem; background: transparent; color: var(--muted);
+    border: 1.5px solid var(--border); border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem; cursor: pointer; margin-top: 0.75rem; transition: all 0.2s;
+  }
+  .btn-demo:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* APP */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  header {
+    background: var(--ink); padding: 1rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-logo { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--paper); font-weight: 700; }
+  .header-logo span { color: var(--gold); }
+  .header-right { display: flex; align-items: center; gap: 1rem; }
+  .header-date { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: rgba(245,240,232,0.5); letter-spacing: 0.05em; }
+  .btn-refresh {
+    background: rgba(255,255,255,0.08); color: var(--paper); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 2px; padding: 0.4rem 0.9rem; font-size: 0.8rem; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-refresh:hover { background: rgba(255,255,255,0.14); }
+  .btn-signout { background: none; border: none; color: rgba(245,240,232,0.4); font-size: 0.78rem; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-signout:hover { color: var(--paper); }
+
+  .stats-bar {
+    background: var(--cream); border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;
+  }
+  .stat { display: flex; align-items: center; gap: 0.5rem; }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat-dot.total { background: var(--ink); }
+  .stat-dot.done-c { background: var(--done); }
+  .stat-dot.outstanding-c { background: var(--outstanding); }
+  .stat-dot.unread-c { background: var(--gold); }
+  .stat-label { font-size: 0.78rem; color: var(--muted); }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 0.9rem; font-weight: 500; color: var(--ink); }
+
+  .toolbar { padding: 1rem 2rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .filter-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .filter-tab {
+    padding: 0.4rem 0.9rem; border: 1.5px solid var(--border); border-radius: 2px;
+    background: transparent; font-size: 0.8rem; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; color: var(--muted); transition: all 0.15s;
+  }
+  .filter-tab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter-tab:not(.active):hover { border-color: var(--ink); color: var(--ink); }
+  .mailbox-tabs { display: flex; gap: 0.25rem; margin-left: auto; flex-wrap: wrap; }
+  .mailbox-tab {
+    padding: 0.4rem 0.9rem; border: 1.5px solid var(--border); border-radius: 2px;
+    background: transparent; font-size: 0.78rem; font-family: 'DM Mono', monospace;
+    cursor: pointer; color: var(--muted); transition: all 0.15s;
+  }
+  .mailbox-tab.active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+  .search-box {
+    padding: 0.4rem 0.8rem; border: 1.5px solid var(--border); border-radius: 2px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--ink); background: white; min-width: 200px;
+  }
+  .search-box:focus { outline: none; border-color: var(--ink); }
+
+  .email-list { padding: 0 2rem 2rem; }
+  .mailbox-section { margin-bottom: 2rem; }
+  .mailbox-header {
+    display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem; border-bottom: 2px solid var(--ink);
+  }
+  .mailbox-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; }
+  .mailbox-badge { font-family: 'DM Mono', monospace; font-size: 0.72rem; background: var(--ink); color: var(--paper); padding: 0.1rem 0.5rem; border-radius: 2px; }
+
+  .email-card {
+    background: white; border: 1.5px solid var(--border); border-radius: 2px;
+    padding: 1rem 1.25rem; margin-bottom: 0.5rem;
+    display: grid; grid-template-columns: 10px 1fr auto; gap: 0.75rem; align-items: start;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .email-card:hover { border-color: #aaa9a0; box-shadow: var(--shadow); }
+  .email-card.is-done { background: var(--done-soft); border-color: transparent; opacity: 0.72; }
+  .email-card.is-done:hover { opacity: 1; border-color: var(--done); }
+  .email-card.is-outstanding { border-left: 3px solid var(--outstanding); }
+  .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-top: 5px; flex-shrink: 0; }
+  .read-dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; border: 1.5px solid var(--border); margin-top: 5px; flex-shrink: 0; }
+  .email-body { flex: 1; min-width: 0; }
+  .email-meta { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.2rem; }
+  .email-from { font-size: 0.82rem; font-weight: 500; color: var(--ink); flex-shrink: 0; }
+  .email-time { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+  .email-subject { font-size: 0.88rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
+  .email-card.unread .email-subject { font-weight: 600; }
+  .email-preview { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+  .email-actions { display: flex; flex-direction: column; gap: 0.35rem; flex-shrink: 0; }
+  .action-btn {
+    padding: 0.3rem 0.7rem; border-radius: 2px; border: 1.5px solid;
+    font-size: 0.72rem; font-family: 'DM Sans', sans-serif; cursor: pointer;
+    white-space: nowrap; font-weight: 500; transition: all 0.15s;
+  }
+  .btn-done { border-color: var(--done); color: var(--done); background: transparent; }
+  .btn-done:hover, .btn-done.active { background: var(--done); color: white; }
+  .btn-outstanding { border-color: var(--outstanding); color: var(--outstanding); background: transparent; }
+  .btn-outstanding:hover, .btn-outstanding.active { background: var(--outstanding); color: white; }
+  .btn-clear { border-color: var(--border); color: var(--muted); background: transparent; font-size: 0.68rem; }
+  .btn-clear:hover { border-color: var(--muted); color: var(--ink); }
+
+  .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+  .empty-state-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .empty-state-text { font-family: 'Playfair Display', serif; font-size: 1.1rem; }
+  .empty-state-sub { font-size: 0.82rem; margin-top: 0.4rem; }
+
+  .error-banner {
+    background: var(--outstanding-soft); border: 1px solid var(--outstanding);
+    border-radius: 2px; padding: 0.75rem 1rem; margin: 0.5rem 2rem;
+    font-size: 0.82rem; color: var(--outstanding); display: none;
+  }
+  .progress-bar { height: 3px; background: var(--border); position: relative; overflow: hidden; margin: 0; display: none; }
+  .progress-fill { height: 100%; background: var(--gold); width: 0; transition: width 0.4s; }
+  .loading-spinner { display: none; align-items: center; justify-content: center; padding: 3rem; flex-direction: column; gap: 1rem; }
+  .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-text { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--muted); }
+
+  .export-bar { padding: 0.5rem 2rem; display: flex; gap: 0.5rem; align-items: center; }
+  .btn-export {
+    padding: 0.35rem 0.8rem; border: 1.5px solid var(--border); border-radius: 2px;
+    background: transparent; font-size: 0.78rem; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; color: var(--muted); transition: all 0.15s;
+  }
+  .btn-export:hover { border-color: var(--ink); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Mail<span>Triage</span></div>
+    <div class="auth-sub">// end-of-day email review · O365</div>
+
+    <label class="auth-label">Azure AD App Client ID</label>
+    <input type="text" class="auth-input" id="client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+
+    <label class="auth-label">Mailbox 1</label>
+    <input type="email" class="auth-input" id="mailbox1" placeholder="you@company.com">
+
+    <label class="auth-label">Mailbox 2 (optional)</label>
+    <input type="email" class="auth-input" id="mailbox2" placeholder="you@other.com">
+
+    <div class="auth-note">
+      <strong>Setup:</strong> Register an app in <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank">Azure Portal</a>, add redirect URI = this file's URL, grant <code>Mail.Read</code> (delegated) permission, and paste the Client ID above.<br><br>
+      For a <strong>second mailbox</strong> you don't own, you'll also need <code>Mail.ReadShared</code> or delegate access granted in Exchange.
+    </div>
+
+    <button class="btn-primary" onclick="connectMailboxes()">🔐 Sign in with Microsoft</button>
+    <button class="btn-demo" onclick="loadDemo()">👀 Try demo data first</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <header>
+    <div class="header-logo">Mail<span>Triage</span></div>
+    <div class="header-right">
+      <span class="header-date" id="header-date"></span>
+      <button class="btn-refresh" onclick="refreshEmails()">↻ Refresh</button>
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-dot total"></div><span class="stat-label">Total&nbsp;</span><span class="stat-val" id="stat-total">0</span></div>
+    <div class="stat"><div class="stat-dot unread-c"></div><span class="stat-label">Unread&nbsp;</span><span class="stat-val" id="stat-unread">0</span></div>
+    <div class="stat"><div class="stat-dot outstanding-c"></div><span class="stat-label">Outstanding&nbsp;</span><span class="stat-val" id="stat-outstanding">0</span></div>
+    <div class="stat"><div class="stat-dot done-c"></div><span class="stat-label">Done&nbsp;</span><span class="stat-val" id="stat-done">0</span></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-tab" onclick="setFilter('outstanding',this)">⚠ Outstanding</button>
+      <button class="filter-tab" onclick="setFilter('done',this)">✓ Done</button>
+      <button class="filter-tab" onclick="setFilter('unread',this)">● Unread</button>
+      <button class="filter-tab" onclick="setFilter('unmarked',this)">◌ Unmarked</button>
+    </div>
+    <input class="search-box" type="search" placeholder="Search…" oninput="searchEmails(this.value)" id="search-input">
+    <div class="mailbox-tabs" id="mailbox-tabs"></div>
+  </div>
+
+  <div class="export-bar">
+    <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
+    <button class="btn-export" onclick="markAllVisible('done')">✓ Mark all visible Done</button>
+    <button class="btn-export" onclick="clearAll()">✕ Clear all markings</button>
+  </div>
+
+  <div id="error-banner" class="error-banner"></div>
+
+  <div id="loading" class="loading-spinner">
+    <div class="spinner"></div>
+    <div class="spinner-text" id="loading-text">Fetching emails…</div>
+  </div>
+
+  <div class="email-list" id="email-list"></div>
+</div>
+
+<script>
+let state = {
+  emails: [],
+  filter: 'all',
+  searchQuery: '',
+  mailboxFilter: 'all',
+  clientId: '',
+  mailboxes: [],
+  token: null,
+  isDemo: false
+};
+
+// ── AUTH ──────────────────────────────────────────────
+function connectMailboxes() {
+  const clientId = document.getElementById('client-id').value.trim();
+  const mb1 = document.getElementById('mailbox1').value.trim();
+  const mb2 = document.getElementById('mailbox2').value.trim();
+  if (!clientId || !mb1) { alert('Please fill in Client ID and at least one mailbox.'); return; }
+  state.clientId = clientId;
+  state.mailboxes = mb2 ? [mb1, mb2] : [mb1];
+  sessionStorage.setItem('mt_cfg', JSON.stringify({ clientId, mailboxes: state.mailboxes }));
+  const redirectUri = encodeURIComponent(window.location.href.split('?')[0].split('#')[0]);
+  const scope = encodeURIComponent('https://graph.microsoft.com/Mail.Read offline_access');
+  window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}&response_mode=fragment`;
+}
+
+function checkForToken() {
+  const hash = window.location.hash;
+  if (hash.includes('access_token=')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    const saved = JSON.parse(sessionStorage.getItem('mt_cfg') || '{}');
+    if (token && saved.clientId) {
+      state.clientId = saved.clientId;
+      state.mailboxes = saved.mailboxes || [];
+      state.token = token;
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      showApp(); fetchRealEmails(); return true;
+    }
+  }
+  if (hash.includes('error=')) {
+    const p = new URLSearchParams(hash.substring(1));
+    showError('Auth error: ' + (p.get('error_description') || p.get('error')));
+  }
+  return false;
+}
+
+async function fetchRealEmails() {
+  showLoading(true); state.emails = [];
+  const headers = { 'Authorization': 'Bearer ' + state.token };
+  for (let i = 0; i < state.mailboxes.length; i++) {
+    const mb = state.mailboxes[i];
+    setLoadingText('Fetching ' + mb + '…');
+    updateProgress(20 + i * 40);
+    try {
+      // First mailbox = delegated /me, second = /users/{upn}
+      const base = i === 0
+        ? 'https://graph.microsoft.com/v1.0/me/messages'
+        : 'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(mb) + '/messages';
+      const url = base + '?$top=75&$orderby=receivedDateTime desc&$filter=receivedDateTime ge 2026-01-01T00:00:00Z&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error((errData.error && errData.error.message) || res.statusText);
+      }
+      const data = await res.json();
+      (data.value || []).forEach(m => {
+        state.emails.push({
+          id: 'g_' + i + '_' + m.id,
+          graphId: m.id,
+          mailbox: mb, mailboxIndex: i,
+          from: (m.from && m.from.emailAddress && m.from.emailAddress.name) || (m.from && m.from.emailAddress && m.from.emailAddress.address) || 'Unknown',
+          fromEmail: (m.from && m.from.emailAddress && m.from.emailAddress.address) || '',
+          subject: m.subject || '(no subject)',
+          preview: m.bodyPreview || '',
+          time: m.receivedDateTime,
+          isRead: m.isRead,
+          status: 'unmarked'
+        });
+      });
+    } catch(e) {
+      showError('Error fetching ' + mb + ': ' + e.message);
+    }
+  }
+  loadStoredStatuses();
+  updateProgress(100);
+  setTimeout(() => { showLoading(false); renderEmails(); updateStats(); }, 500);
+}
+
+// ── DEMO ──────────────────────────────────────────────
+function loadDemo() {
+  state.isDemo = true;
+  state.mailboxes = ['alice@corpco.com', 'alice@consulting.io'];
+  const raw = [
+    [0,'Sarah Chen','s.chen@partner.com','Q2 Budget Review — action needed','Following up on the budget review from last week. Could you confirm the figures for department 3 before Thursday?','2026-04-27T09:15:00Z',false],
+    [0,'James Whitmore','jwhitmore@bigclient.com','Re: Project Phoenix — timeline','Thanks for the update. We are aligned on the delivery date but need clarity on milestone 3 and the handoff process.','2026-04-27T08:42:00Z',true],
+    [0,'HR Team','hr@corpco.com','Annual review forms due Friday','Please complete your self-assessment form before end of business Friday using the link in the HR portal.','2026-04-27T08:00:00Z',false],
+    [0,'Raj Patel','r.patel@vendor.com','Invoice #4421 — payment pending','We note that invoice #4421 for £3,450 remains outstanding. Could you confirm expected payment date?','2026-04-26T17:30:00Z',true],
+    [0,'Tom Hargreaves','tom@agency.co.uk','Creative concepts for review','Three concept directions for the rebrand campaign are attached. Would love your thoughts before the client call.','2026-04-26T15:22:00Z',false],
+    [0,'LinkedIn','no-reply@linkedin.com','5 new connections this week','You have 5 pending connection requests and 12 people viewed your profile this week.','2026-04-26T10:00:00Z',true],
+    [0,'AWS Billing','aws-billing@amazon.com','Your April AWS bill is ready','Your AWS bill for April 2026 is now available. Total charges: $847.23. View your full invoice in the console.','2026-04-26T09:00:00Z',false],
+    [0,'Fiona Mackay','fmackay@supplier.com','New summer product line launch','We are launching our summer collection next month and thought of you given your previous orders with us.','2026-04-25T14:00:00Z',true],
+    [1,'Ben Alderton','ben@startup.io','Investment deck — feedback request','Really appreciate you agreeing to look at our deck. Any feedback before Thursday pitch would be invaluable.','2026-04-27T07:45:00Z',false],
+    [1,'HMRC','noreply@hmrc.gov.uk','Self Assessment: important reminder','Your Self Assessment tax return for 2024/25 is due. Please log in to HMRC online services to complete it.','2026-04-26T12:00:00Z',false],
+    [1,'CEO — RetailCo','ceo@retail-co.com','Next steps after our call','Great call yesterday. Please send over the proposal draft and we will review it with the board next week.','2026-04-26T09:30:00Z',true],
+    [1,'Eventbrite','noreply@eventbrite.com','Your ticket: FinTech Summit 2026','Booking confirmed — FinTech Summit 2026, 14 May at ExCeL London. Your QR code is attached.','2026-04-25T18:00:00Z',true],
+  ];
+  state.emails = raw.map((d,i) => ({
+    id:'demo_'+i, graphId:'demo_'+i,
+    mailboxIndex:d[0], mailbox:state.mailboxes[d[0]],
+    from:d[1], fromEmail:d[2], subject:d[3], preview:d[4], time:d[5], isRead:d[6], status:'unmarked'
+  }));
+  loadStoredStatuses(); showApp(); renderEmails(); updateStats();
+}
+
+// ── STORAGE ───────────────────────────────────────────
+function saveStatuses() {
+  const map = {};
+  state.emails.forEach(e => { map[e.id] = e.status; });
+  try { localStorage.setItem('mt_statuses', JSON.stringify(map)); } catch(e) {}
+}
+function loadStoredStatuses() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mt_statuses') || '{}');
+    state.emails.forEach(e => { if (saved[e.id]) e.status = saved[e.id]; });
+  } catch(e) {}
+}
+
+// ── UI ────────────────────────────────────────────────
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  buildMailboxTabs();
+}
+function showLoading(v) {
+  document.getElementById('loading').style.display = v ? 'flex' : 'none';
+  document.getElementById('progress-bar').style.display = v ? 'block' : 'none';
+  document.getElementById('email-list').innerHTML = '';
+}
+function setLoadingText(t) { document.getElementById('loading-text').textContent = t; }
+function updateProgress(p) { document.getElementById('progress-fill').style.width = p + '%'; }
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => { el.style.display='none'; }, 8000);
+}
+function buildMailboxTabs() {
+  const c = document.getElementById('mailbox-tabs');
+  c.innerHTML = '<button class="mailbox-tab active" onclick="setMailbox(\'all\',this)">All boxes</button>';
+  state.mailboxes.forEach((mb,i) => {
+    c.innerHTML += '<button class="mailbox-tab" onclick="setMailbox(\'' + i + '\',this)">@' + mb.split('@')[0] + '</button>';
+  });
+}
+function setFilter(f, el) {
+  state.filter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active'); renderEmails();
+}
+function setMailbox(m, el) {
+  state.mailboxFilter = m;
+  document.querySelectorAll('.mailbox-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active'); renderEmails();
+}
+function searchEmails(q) { state.searchQuery = q.toLowerCase(); renderEmails(); }
+function markEmail(id, status) {
+  const e = state.emails.find(x => x.id === id); if (!e) return;
+  e.status = e.status === status ? 'unmarked' : status;
+  saveStatuses(); renderEmails(); updateStats();
+}
+function markAllVisible(status) {
+  filteredEmails().forEach(e => { e.status = status; });
+  saveStatuses(); renderEmails(); updateStats();
+}
+function clearAll() {
+  state.emails.forEach(e => { e.status = 'unmarked'; });
+  saveStatuses(); renderEmails(); updateStats();
+}
+function refreshEmails() {
+  if (state.isDemo) { renderEmails(); return; }
+  if (state.token) fetchRealEmails();
+  else connectMailboxes();
+}
+function signOut() {
+  state = { emails:[], filter:'all', searchQuery:'', mailboxFilter:'all', clientId:'', mailboxes:[], token:null, isDemo:false };
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+function exportCSV() {
+  const emails = filteredEmails();
+  const rows = [['Mailbox','From','Email','Subject','Time','Read','Status']];
+  emails.forEach(e => rows.push([e.mailbox, e.from, e.fromEmail, e.subject, e.time, e.isRead ? 'Yes':'No', e.status]));
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'email-triage-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ── FILTER ────────────────────────────────────────────
+function filteredEmails() {
+  return state.emails.filter(e => {
+    if (state.mailboxFilter !== 'all' && e.mailboxIndex !== parseInt(state.mailboxFilter)) return false;
+    if (state.filter === 'outstanding' && e.status !== 'outstanding') return false;
+    if (state.filter === 'done' && e.status !== 'done') return false;
+    if (state.filter === 'unread' && e.isRead) return false;
+    if (state.filter === 'unmarked' && e.status !== 'unmarked') return false;
+    if (state.searchQuery) {
+      const hay = (e.from + ' ' + e.subject + ' ' + e.preview + ' ' + e.fromEmail).toLowerCase();
+      if (!hay.includes(state.searchQuery)) return false;
+    }
+    return true;
+  });
+}
+
+function formatTime(iso) {
+  const d = new Date(iso), now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  return isToday ? d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── RENDER ────────────────────────────────────────────
+function renderEmails() {
+  const container = document.getElementById('email-list');
+  const emails = filteredEmails();
+  if (!emails.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">All clear here</div><div class="empty-state-sub">No emails match this filter.</div></div>';
+    return;
+  }
+  const activeMailboxes = state.mailboxFilter === 'all' ? state.mailboxes : [state.mailboxes[parseInt(state.mailboxFilter)]];
+  let html = '';
+  activeMailboxes.forEach((mb, idx) => {
+    const mi = state.mailboxFilter === 'all' ? idx : parseInt(state.mailboxFilter);
+    const group = emails.filter(e => e.mailboxIndex === mi);
+    if (!group.length) return;
+    html += '<div class="mailbox-section"><div class="mailbox-header"><div class="mailbox-title">' + esc(mb) + '</div><div class="mailbox-badge">' + group.length + ' email' + (group.length!==1?'s':'') + '</div></div>';
+    group.forEach(e => {
+      const isDone = e.status === 'done', isOut = e.status === 'outstanding';
+      html += '<div class="email-card' + (isDone?' is-done':'') + (isOut?' is-outstanding':'') + (!e.isRead?' unread':'') + '">'
+        + '<div class="' + (!e.isRead?'unread-dot':'read-dot') + '"></div>'
+        + '<div class="email-body">'
+          + '<div class="email-meta"><span class="email-from">' + esc(e.from) + '</span><span class="email-time">' + formatTime(e.time) + '</span></div>'
+          + '<div class="email-subject">' + esc(e.subject) + '</div>'
+          + '<div class="email-preview">' + esc(e.preview) + '</div>'
+        + '</div>'
+        + '<div class="email-actions">'
+          + '<button class="action-btn btn-done' + (isDone?' active':'') + '" onclick="markEmail(\'' + e.id + '\',\'done\')">✓ Done</button>'
+          + '<button class="action-btn btn-outstanding' + (isOut?' active':'') + '" onclick="markEmail(\'' + e.id + '\',\'outstanding\')">⚠ Outstanding</button>'
+          + (isDone||isOut ? '<button class="action-btn btn-clear" onclick="markEmail(\'' + e.id + '\',\'unmarked\')">Clear</button>' : '')
+        + '</div>'
+      + '</div>';
+    });
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+function updateStats() {
+  document.getElementById('stat-total').textContent = state.emails.length;
+  document.getElementById('stat-unread').textContent = state.emails.filter(e=>!e.isRead).length;
+  document.getElementById('stat-outstanding').textContent = state.emails.filter(e=>e.status==='outstanding').length;
+  document.getElementById('stat-done').textContent = state.emails.filter(e=>e.status==='done').length;
+}
+
+// ── INIT ──────────────────────────────────────────────
+window.onload = () => {
+  if (!checkForToken()) {
+    const saved = JSON.parse(sessionStorage.getItem('mt_cfg') || '{}');
+    if (saved.clientId) {
+      document.getElementById('client-id').value = saved.clientId;
+      if (saved.mailboxes) {
+        document.getElementById('mailbox1').value = saved.mailboxes[0] || '';
+        document.getElementById('mailbox2').value = saved.mailboxes[1] || '';
+      }
+    }
+  }
+};
+</script>
+</body>
+</html>
