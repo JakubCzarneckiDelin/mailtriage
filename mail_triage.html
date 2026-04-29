@@ -196,6 +196,7 @@ function startAuth() {
   if (!cid || !ea) { alert('Please enter Client ID and Mailbox A email.'); return; }
   CFG = { clientId:cid, emailA:ea, emailB:eb };
   sessionStorage.setItem('mt_cfg', JSON.stringify(CFG));
+  try { localStorage.setItem('mt_saved_cfg', JSON.stringify(CFG)); } catch(e) {}
   sessionStorage.setItem('mt_step', 'a');
   doAuth(cid, ea);
 }
@@ -242,10 +243,13 @@ function restore() {
     if (tb) S.b.token = tb;
     showApp(); fetchAll(); return true;
   }
-  if (cfg.clientId) {
-    document.getElementById('cid').value = cfg.clientId || '';
-    document.getElementById('em-a').value = cfg.emailA || '';
-    document.getElementById('em-b').value = cfg.emailB || '';
+  // Pre-fill from localStorage (persists across browser sessions)
+  var saved = JSON.parse(localStorage.getItem('mt_saved_cfg') || '{}');
+  var merged = Object.assign({}, saved, cfg);
+  if (merged.clientId) {
+    document.getElementById('cid').value = merged.clientId || '';
+    document.getElementById('em-a').value = merged.emailA || '';
+    document.getElementById('em-b').value = merged.emailB || '';
   }
   return false;
 }
@@ -375,7 +379,12 @@ function renderBody(p) {
   var panel = S[p]; var body = document.getElementById('pbody-' + p);
   if (panel.status === 'loading') { body.innerHTML = '<div class="loading-p"><div class="spinner"></div><div class="stext">Fetching emails...</div></div>'; return; }
   if (panel.status === 'expired') {
-    body.innerHTML = '<div class="auth-overlay"><div style="font-size:2rem">&#9203;</div><div class="ao-title">Session expired</div><div class="ao-sub">Your sign-in token has expired (they last 1 hour). Click below to sign back in.</div><button class="btn-connect" onclick="authPanel(\'' + p + \')">Sign in again</button></div>';
+    body.innerHTML = '<div class="auth-overlay">' +
+      '<div style="font-size:2rem">&#9203;</div>' +
+      '<div class="ao-title">Session expired</div>' +
+      '<div class="ao-sub">Your sign-in token has expired (they last 1 hour). Click below to sign back in.</div>' +
+      '<button class="btn-connect" onclick="authPanel(\'' + p + '\')">Sign in again</button>' +
+      '</div>';
     return;
   }
   if (panel.status.startsWith('error:')) { body.innerHTML = '<div class="errmsg">Error: ' + esc(panel.status.replace('error:','')) + '</div>'; return; }
