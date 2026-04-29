@@ -257,7 +257,17 @@ async function fetchPanel(p) {
   var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=75&$orderby=receivedDateTime desc&$filter=receivedDateTime ge 2026-01-01T00:00:00Z&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
   try {
     var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + panel.token } });
-    if (!res.ok) { var e = await res.json().catch(function(){return {};}); throw new Error((e.error && e.error.message) || res.statusText); }
+    if (!res.ok) {
+      var e = await res.json().catch(function(){return {};});
+      var msg = (e.error && e.error.message) || res.statusText;
+      if (res.status === 401 || msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('lifetime')) {
+        panel.token = null;
+        sessionStorage.removeItem('mt_tok_' + p);
+        panel.status = 'expired';
+        renderBody(p); return;
+      }
+      throw new Error(msg);
+    }
     var data = await res.json();
     panel.emails = (data.value || []).map(function(m) {
       return {
@@ -364,6 +374,10 @@ function authPanel(p) {
 function renderBody(p) {
   var panel = S[p]; var body = document.getElementById('pbody-' + p);
   if (panel.status === 'loading') { body.innerHTML = '<div class="loading-p"><div class="spinner"></div><div class="stext">Fetching emails...</div></div>'; return; }
+  if (panel.status === 'expired') {
+    body.innerHTML = '<div class="auth-overlay"><div style="font-size:2rem">&#9203;</div><div class="ao-title">Session expired</div><div class="ao-sub">Your sign-in token has expired (they last 1 hour). Click below to sign back in.</div><button class="btn-connect" onclick="authPanel(\'' + p + \')">Sign in again</button></div>';
+    return;
+  }
   if (panel.status.startsWith('error:')) { body.innerHTML = '<div class="errmsg">Error: ' + esc(panel.status.replace('error:','')) + '</div>'; return; }
   var emails = filtered(p);
   if (!emails.length) { body.innerHTML = '<div class="empty"><div class="empty-t">All clear</div><div class="empty-s">No emails match this filter.</div></div>'; return; }
