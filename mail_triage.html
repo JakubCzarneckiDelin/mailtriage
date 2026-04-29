@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MailTriage — O365 Email Bot</title>
+<title>MailTriage â O365 Email Bot</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -194,7 +194,7 @@
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">Mail<span>Triage</span></div>
-    <div class="auth-sub">// end-of-day email review · O365</div>
+    <div class="auth-sub">// end-of-day email review Â· O365</div>
 
     <label class="auth-label">Azure AD App Client ID</label>
     <input type="text" class="auth-input" id="client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
@@ -210,8 +210,8 @@
       For a <strong>second mailbox</strong> you don't own, you'll also need <code>Mail.ReadShared</code> or delegate access granted in Exchange.
     </div>
 
-    <button class="btn-primary" onclick="connectMailboxes()">🔐 Sign in with Microsoft</button>
-    <button class="btn-demo" onclick="loadDemo()">👀 Try demo data first</button>
+    <button class="btn-primary" onclick="connectMailboxes()">ð Sign in with Microsoft</button>
+    <button class="btn-demo" onclick="loadDemo()">ð Try demo data first</button>
   </div>
 </div>
 
@@ -221,7 +221,7 @@
     <div class="header-logo">Mail<span>Triage</span></div>
     <div class="header-right">
       <span class="header-date" id="header-date"></span>
-      <button class="btn-refresh" onclick="refreshEmails()">↻ Refresh</button>
+      <button class="btn-refresh" onclick="refreshEmails()">â» Refresh</button>
       <button class="btn-signout" onclick="signOut()">Sign out</button>
     </div>
   </header>
@@ -238,26 +238,26 @@
   <div class="toolbar">
     <div class="filter-tabs">
       <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
-      <button class="filter-tab" onclick="setFilter('outstanding',this)">⚠ Outstanding</button>
-      <button class="filter-tab" onclick="setFilter('done',this)">✓ Done</button>
-      <button class="filter-tab" onclick="setFilter('unread',this)">● Unread</button>
-      <button class="filter-tab" onclick="setFilter('unmarked',this)">◌ Unmarked</button>
+      <button class="filter-tab" onclick="setFilter('outstanding',this)">â  Outstanding</button>
+      <button class="filter-tab" onclick="setFilter('done',this)">â Done</button>
+      <button class="filter-tab" onclick="setFilter('unread',this)">â Unread</button>
+      <button class="filter-tab" onclick="setFilter('unmarked',this)">â Unmarked</button>
     </div>
-    <input class="search-box" type="search" placeholder="Search…" oninput="searchEmails(this.value)" id="search-input">
+    <input class="search-box" type="search" placeholder="Searchâ¦" oninput="searchEmails(this.value)" id="search-input">
     <div class="mailbox-tabs" id="mailbox-tabs"></div>
   </div>
 
   <div class="export-bar">
-    <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
-    <button class="btn-export" onclick="markAllVisible('done')">✓ Mark all visible Done</button>
-    <button class="btn-export" onclick="clearAll()">✕ Clear all markings</button>
+    <button class="btn-export" onclick="exportCSV()">â Export CSV</button>
+    <button class="btn-export" onclick="markAllVisible('done')">â Mark all visible Done</button>
+    <button class="btn-export" onclick="clearAll()">â Clear all markings</button>
   </div>
 
   <div id="error-banner" class="error-banner"></div>
 
   <div id="loading" class="loading-spinner">
     <div class="spinner"></div>
-    <div class="spinner-text" id="loading-text">Fetching emails…</div>
+    <div class="spinner-text" id="loading-text">Fetching emailsâ¦</div>
   </div>
 
   <div class="email-list" id="email-list"></div>
@@ -275,7 +275,7 @@ let state = {
   isDemo: false
 };
 
-// ── AUTH ──────────────────────────────────────────────
+// ââ AUTH ââââââââââââââââââââââââââââââââââââââââââââââ
 function connectMailboxes() {
   const clientId = document.getElementById('client-id').value.trim();
   const mb1 = document.getElementById('mailbox1').value.trim();
@@ -315,7 +315,7 @@ async function fetchRealEmails() {
   const headers = { 'Authorization': 'Bearer ' + state.token };
   for (let i = 0; i < state.mailboxes.length; i++) {
     const mb = state.mailboxes[i];
-    setLoadingText('Fetching ' + mb + '…');
+    setLoadingText('Fetching ' + mb + 'â¦');
     updateProgress(20 + i * 40);
     try {
       // First mailbox = delegated /me, second = /users/{upn}
@@ -352,23 +352,23 @@ async function fetchRealEmails() {
   setTimeout(() => { showLoading(false); renderEmails(); updateStats(); }, 500);
 }
 
-// ── DEMO ──────────────────────────────────────────────
+// ââ DEMO ââââââââââââââââââââââââââââââââââââââââââââââ
 function loadDemo() {
   state.isDemo = true;
   state.mailboxes = ['alice@corpco.com', 'alice@consulting.io'];
   const raw = [
-    [0,'Sarah Chen','s.chen@partner.com','Q2 Budget Review — action needed','Following up on the budget review from last week. Could you confirm the figures for department 3 before Thursday?','2026-04-27T09:15:00Z',false],
-    [0,'James Whitmore','jwhitmore@bigclient.com','Re: Project Phoenix — timeline','Thanks for the update. We are aligned on the delivery date but need clarity on milestone 3 and the handoff process.','2026-04-27T08:42:00Z',true],
+    [0,'Sarah Chen','s.chen@partner.com','Q2 Budget Review â action needed','Following up on the budget review from last week. Could you confirm the figures for department 3 before Thursday?','2026-04-27T09:15:00Z',false],
+    [0,'James Whitmore','jwhitmore@bigclient.com','Re: Project Phoenix â timeline','Thanks for the update. We are aligned on the delivery date but need clarity on milestone 3 and the handoff process.','2026-04-27T08:42:00Z',true],
     [0,'HR Team','hr@corpco.com','Annual review forms due Friday','Please complete your self-assessment form before end of business Friday using the link in the HR portal.','2026-04-27T08:00:00Z',false],
-    [0,'Raj Patel','r.patel@vendor.com','Invoice #4421 — payment pending','We note that invoice #4421 for £3,450 remains outstanding. Could you confirm expected payment date?','2026-04-26T17:30:00Z',true],
+    [0,'Raj Patel','r.patel@vendor.com','Invoice #4421 â payment pending','We note that invoice #4421 for Â£3,450 remains outstanding. Could you confirm expected payment date?','2026-04-26T17:30:00Z',true],
     [0,'Tom Hargreaves','tom@agency.co.uk','Creative concepts for review','Three concept directions for the rebrand campaign are attached. Would love your thoughts before the client call.','2026-04-26T15:22:00Z',false],
     [0,'LinkedIn','no-reply@linkedin.com','5 new connections this week','You have 5 pending connection requests and 12 people viewed your profile this week.','2026-04-26T10:00:00Z',true],
     [0,'AWS Billing','aws-billing@amazon.com','Your April AWS bill is ready','Your AWS bill for April 2026 is now available. Total charges: $847.23. View your full invoice in the console.','2026-04-26T09:00:00Z',false],
     [0,'Fiona Mackay','fmackay@supplier.com','New summer product line launch','We are launching our summer collection next month and thought of you given your previous orders with us.','2026-04-25T14:00:00Z',true],
-    [1,'Ben Alderton','ben@startup.io','Investment deck — feedback request','Really appreciate you agreeing to look at our deck. Any feedback before Thursday pitch would be invaluable.','2026-04-27T07:45:00Z',false],
+    [1,'Ben Alderton','ben@startup.io','Investment deck â feedback request','Really appreciate you agreeing to look at our deck. Any feedback before Thursday pitch would be invaluable.','2026-04-27T07:45:00Z',false],
     [1,'HMRC','noreply@hmrc.gov.uk','Self Assessment: important reminder','Your Self Assessment tax return for 2024/25 is due. Please log in to HMRC online services to complete it.','2026-04-26T12:00:00Z',false],
-    [1,'CEO — RetailCo','ceo@retail-co.com','Next steps after our call','Great call yesterday. Please send over the proposal draft and we will review it with the board next week.','2026-04-26T09:30:00Z',true],
-    [1,'Eventbrite','noreply@eventbrite.com','Your ticket: FinTech Summit 2026','Booking confirmed — FinTech Summit 2026, 14 May at ExCeL London. Your QR code is attached.','2026-04-25T18:00:00Z',true],
+    [1,'CEO â RetailCo','ceo@retail-co.com','Next steps after our call','Great call yesterday. Please send over the proposal draft and we will review it with the board next week.','2026-04-26T09:30:00Z',true],
+    [1,'Eventbrite','noreply@eventbrite.com','Your ticket: FinTech Summit 2026','Booking confirmed â FinTech Summit 2026, 14 May at ExCeL London. Your QR code is attached.','2026-04-25T18:00:00Z',true],
   ];
   state.emails = raw.map((d,i) => ({
     id:'demo_'+i, graphId:'demo_'+i,
@@ -378,7 +378,7 @@ function loadDemo() {
   loadStoredStatuses(); showApp(); renderEmails(); updateStats();
 }
 
-// ── STORAGE ───────────────────────────────────────────
+// ââ STORAGE âââââââââââââââââââââââââââââââââââââââââââ
 function saveStatuses() {
   const map = {};
   state.emails.forEach(e => { map[e.id] = e.status; });
@@ -391,7 +391,7 @@ function loadStoredStatuses() {
   } catch(e) {}
 }
 
-// ── UI ────────────────────────────────────────────────
+// ââ UI ââââââââââââââââââââââââââââââââââââââââââââââââ
 function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
@@ -430,8 +430,15 @@ function setMailbox(m, el) {
 function searchEmails(q) { state.searchQuery = q.toLowerCase(); renderEmails(); }
 function markEmail(id, status) {
   const e = state.emails.find(x => x.id === id); if (!e) return;
-  e.status = e.status === status ? 'unmarked' : status;
-  saveStatuses(); renderEmails(); updateStats();
+  if (status === 'done') {
+    e.status = 'done';
+    saveStatuses();
+    state.emails = state.emails.filter(x => x.id !== id);
+  } else {
+    e.status = e.status === status ? 'unmarked' : status;
+    saveStatuses();
+  }
+  renderEmails(); updateStats();
 }
 function markAllVisible(status) {
   filteredEmails().forEach(e => { e.status = status; });
@@ -462,7 +469,7 @@ function exportCSV() {
   a.click();
 }
 
-// ── FILTER ────────────────────────────────────────────
+// ââ FILTER ââââââââââââââââââââââââââââââââââââââââââââ
 function filteredEmails() {
   return state.emails.filter(e => {
     if (state.mailboxFilter !== 'all' && e.mailboxIndex !== parseInt(state.mailboxFilter)) return false;
@@ -485,12 +492,12 @@ function formatTime(iso) {
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── RENDER ────────────────────────────────────────────
+// ââ RENDER ââââââââââââââââââââââââââââââââââââââââââââ
 function renderEmails() {
   const container = document.getElementById('email-list');
   const emails = filteredEmails();
   if (!emails.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">All clear here</div><div class="empty-state-sub">No emails match this filter.</div></div>';
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ð­</div><div class="empty-state-text">All clear here</div><div class="empty-state-sub">No emails match this filter.</div></div>';
     return;
   }
   const activeMailboxes = state.mailboxFilter === 'all' ? state.mailboxes : [state.mailboxes[parseInt(state.mailboxFilter)]];
@@ -510,8 +517,8 @@ function renderEmails() {
           + '<div class="email-preview">' + esc(e.preview) + '</div>'
         + '</div>'
         + '<div class="email-actions">'
-          + '<button class="action-btn btn-done' + (isDone?' active':'') + '" onclick="markEmail(\'' + e.id + '\',\'done\')">✓ Done</button>'
-          + '<button class="action-btn btn-outstanding' + (isOut?' active':'') + '" onclick="markEmail(\'' + e.id + '\',\'outstanding\')">⚠ Outstanding</button>'
+          + '<button class="action-btn btn-done' + (isDone?' active':'') + '" onclick="markEmail(\'' + e.id + '\',\'done\')">â Done</button>'
+          + '<button class="action-btn btn-outstanding' + (isOut?' active':'') + '" onclick="markEmail(\'' + e.id + '\',\'outstanding\')">â  Outstanding</button>'
           + (isDone||isOut ? '<button class="action-btn btn-clear" onclick="markEmail(\'' + e.id + '\',\'unmarked\')">Clear</button>' : '')
         + '</div>'
       + '</div>';
@@ -527,7 +534,7 @@ function updateStats() {
   document.getElementById('stat-done').textContent = state.emails.filter(e=>e.status==='done').length;
 }
 
-// ── INIT ──────────────────────────────────────────────
+// ââ INIT ââââââââââââââââââââââââââââââââââââââââââââââ
 window.onload = () => {
   if (!checkForToken()) {
     const saved = JSON.parse(sessionStorage.getItem('mt_cfg') || '{}');
