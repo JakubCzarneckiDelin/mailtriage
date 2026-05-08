@@ -94,10 +94,13 @@
   .board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; flex: 1; min-height: calc(100vh - 130px); }
   .col { display: flex; flex-direction: column; border-right: 1px solid var(--rule); }
   .col:last-child { border-right: none; }
-  .col-head { padding: 1rem 1.25rem 0.75rem; border-bottom: 2px solid; position: sticky; top: 52px; background: var(--paper); z-index: 40; display: flex; align-items: baseline; justify-content: space-between; }
-  .col-head-todo { border-bottom-color: var(--col-todo); }
-  .col-head-out { border-bottom-color: var(--col-out); }
-  .col-head-done { border-bottom-color: var(--col-done); }
+  .col-todo-bg { background: #fffbf0; }
+  .col-out-bg { background: #fff5f5; }
+  .col-done-bg { background: #f2faf5; }
+  .col-head { padding: 1rem 1.25rem 0.75rem; border-bottom: 2px solid; position: sticky; top: 52px; z-index: 40; display: flex; align-items: baseline; justify-content: space-between; }
+  .col-head-todo { border-bottom-color: var(--col-todo); background: #fffbf0; }
+  .col-head-out { border-bottom-color: var(--col-out); background: #fff5f5; }
+  .col-head-done { border-bottom-color: var(--col-done); background: #f2faf5; }
   .col-name { font-family: 'Libre Baskerville', serif; font-size: 1rem; font-weight: 700; }
   .col-count { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); }
   .col-body { padding: 0.85rem; flex: 1; }
@@ -209,21 +212,21 @@
         <div class="col-name">To Do</div>
         <div class="col-count" id="cnt-todo">0</div>
       </div>
-      <div class="col-body" id="col-todo"></div>
+      <div class="col-body col-todo-bg" id="col-todo"></div>
     </div>
     <div class="col">
       <div class="col-head col-head-out">
         <div class="col-name">Outstanding</div>
         <div class="col-count" id="cnt-out">0</div>
       </div>
-      <div class="col-body" id="col-out"></div>
+      <div class="col-body col-out-bg" id="col-out"></div>
     </div>
     <div class="col">
       <div class="col-head col-head-done">
         <div class="col-name">Done</div>
         <div class="col-count" id="cnt-done">0</div>
       </div>
-      <div class="col-body" id="col-done"></div>
+      <div class="col-body col-done-bg" id="col-done"></div>
     </div>
   </div>
 </div>
@@ -579,7 +582,6 @@ function renderCol(tasks, colType) {
     return '<div class="' + cardClass + '">' +
       '<div class="task-from">' + esc(t.from) + '</div>' +
       '<div class="task-subject">' + esc(t.subject) + '</div>' +
-      (t.aiNote ? '<div class="task-ai-note">AI: ' + esc(t.aiNote) + '</div>' : '') +
       '<div class="task-meta"><div class="task-time">' + fmt(t.time) + '</div></div>' +
       '<div class="task-actions">' + actions + '</div>' +
     '</div>';
