@@ -302,9 +302,9 @@ async function runScan() {
   var emails = [];
   try {
     var now = new Date();
-    var cutoff = new Date(Math.max(new Date('2026-01-01').getTime(), now.getTime() - 30 * 24 * 60 * 60 * 1000));
+    var cutoff = new Date('2026-04-01T00:00:00Z');
     var cutoffStr = cutoff.toISOString().split('.')[0] + 'Z';
-    var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=50&$orderby=receivedDateTime desc&$filter=receivedDateTime ge ' + cutoffStr + ' and isDraft eq false&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
+    var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=200&$orderby=receivedDateTime desc&$filter=receivedDateTime ge ' + cutoffStr + ' and isDraft eq false&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
     var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + STATE.token } });
     if (!res.ok) {
       var err = await res.json().catch(function(){return {};});
