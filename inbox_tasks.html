@@ -235,6 +235,7 @@ var STATE = {
   clientId: '',
   email: '',
   tasks: [],       // { id, from, subject, time, status, aiNote, seenAt }
+  seenIds: new Set(),  // all email IDs ever processed, persists independently of tasks
   ignoreList: ['bloomberg', 'financial times', 'ft.com', 'linkedin', 'eventbrite', 'aws', 'amazon web services', 'noreply', 'no-reply', 'newsletter', 'marketing', 'donotreply', 'do-not-reply']
 };
 
@@ -270,7 +271,7 @@ function restore() {
   var tok = sessionStorage.getItem('it_tok');
   if (cfg.clientId && tok) {
     STATE.token = tok; STATE.clientId = cfg.clientId; STATE.email = cfg.email;
-    loadTasks(); loadIgnore();
+    loadTasks(); loadIgnore(); loadSeenIds();
     showApp(); renderBoard();
     document.getElementById('sbar-msg').textContent = 'Loaded from last session. Click Scan to refresh.';
     return true;
@@ -289,14 +290,18 @@ function showApp() {
   document.getElementById('app').style.display = 'flex';
   document.getElementById('topbar-email').textContent = STATE.email;
   sessionStorage.setItem('it_tok', STATE.token);
-  loadTasks(); loadIgnore(); renderIgnoreTags();
+  loadTasks(); loadIgnore(); loadSeenIds();
+  purgeDoneTasks();
+  renderIgnoreTags();
 }
 
 // -- SCAN --------------------------------------------
 function fullRescan() {
-  if (!confirm('This will clear all tasks and re-check all emails from 1 April with AI. Continue?')) return;
+  if (!confirm('This will clear all tasks and re-check all emails from 1 April. Continue?')) return;
   STATE.tasks = [];
+  STATE.seenIds = new Set();
   saveTasks();
+  saveSeenIds();
   renderBoard();
   runScan();
 }
@@ -333,11 +338,10 @@ async function runScan() {
   }
 
   // 2. Filter ignored senders + already-seen emails
-  var knownIds = new Set(STATE.tasks.map(function(t){ return t.id; }));
   var ignoredEmails = emails.filter(function(em) { return isIgnored(em); });
-  var knownEmails = emails.filter(function(em) { return knownIds.has(em.id) && !isIgnored(em); });
+  var knownEmails = emails.filter(function(em) { return STATE.seenIds.has(em.id) && !isIgnored(em); });
   var toCheck = emails.filter(function(em) {
-    if (knownIds.has(em.id)) return false;
+    if (STATE.seenIds.has(em.id)) return false;
     return !isIgnored(em);
   });
 
@@ -375,7 +379,9 @@ async function runScan() {
   rejectedLog.forEach(function(r){ console.log('  REJECTED:', r); });
   window.__debugLog = rejectedLog;
 
-  // 4. Add new tasks and save
+  // 4. Mark all checked emails as seen (regardless of actionable) and save
+  toCheck.forEach(function(em) { STATE.seenIds.add(em.id); });
+  saveSeenIds();
   STATE.tasks = STATE.tasks.concat(newTasks);
   saveTasks();
   showScanProgress(100, 'Done. ' + newTasks.length + ' new tasks found.');
@@ -479,6 +485,13 @@ function loadTasks() {
     if (saved) STATE.tasks = saved;
   } catch(e) {}
 }
+function saveSeenIds() { try { localStorage.setItem('it_seen', JSON.stringify(Array.from(STATE.seenIds))); } catch(e) {} }
+function loadSeenIds() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('it_seen') || 'null');
+    if (saved) STATE.seenIds = new Set(saved);
+  } catch(e) {}
+}
 
 // -- TASK ACTIONS ------------------------------------
 function moveTask(id, status) {
@@ -486,15 +499,24 @@ function moveTask(id, status) {
   if (!t) return;
   if (status === 'done') {
     t.status = 'done';
-    // Remove after short delay so user sees it move
-    setTimeout(function() {
-      STATE.tasks = STATE.tasks.filter(function(x){ return x.id !== id; });
-      saveTasks(); renderBoard();
-    }, 800);
+    t.doneAt = Date.now();  // record when it was marked done
   } else {
     t.status = status;
+    t.doneAt = null;
   }
   saveTasks(); renderBoard();
+}
+
+function purgeDoneTasks() {
+  var twoDays = 2 * 24 * 60 * 60 * 1000;
+  var now = Date.now();
+  var before = STATE.tasks.length;
+  STATE.tasks = STATE.tasks.filter(function(t) {
+    if (t.status !== 'done') return true;
+    if (!t.doneAt) return false; // old done tasks with no timestamp - remove
+    return (now - t.doneAt) < twoDays;
+  });
+  if (STATE.tasks.length !== before) saveTasks();
 }
 
 // -- RENDER ------------------------------------------
@@ -532,6 +554,11 @@ function renderCol(tasks, colType) {
                 '<button class="task-btn tbtn-done" onclick="moveTask(\'' + t.id + '\',\'done\')">Done</button>';
     } else {
       actions = '<button class="task-btn tbtn-todo" onclick="moveTask(\'' + t.id + '\',\'todo\')">Reopen</button>';
+      if (t.doneAt) {
+        var hoursLeft = Math.ceil((2 * 24 * 60 * 60 * 1000 - (Date.now() - t.doneAt)) / (60 * 60 * 1000));
+        var doneMsg = hoursLeft > 24 ? Math.ceil(hoursLeft/24) + ' day' + (Math.ceil(hoursLeft/24)>1?'s':'') + ' left' : hoursLeft + 'h left';
+        actions += '<span style="font-size:0.58rem;color:var(--muted);text-align:center;display:block;margin-top:0.2rem">' + doneMsg + '</span>';
+      }
     }
     return '<div class="' + cardClass + '">' +
       '<div class="task-from">' + esc(t.from) + '</div>' +
