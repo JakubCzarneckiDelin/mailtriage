@@ -180,6 +180,7 @@
     </div>
     <div class="topbar-right">
       <button class="tbar-btn" id="scan-btn" onclick="runScan()">Scan inbox</button>
+      <button class="tbar-btn" onclick="fullRescan()">Full rescan</button>
       <button class="tbar-btn" onclick="signOut()">Sign out</button>
     </div>
   </div>
@@ -292,6 +293,14 @@ function showApp() {
 }
 
 // -- SCAN --------------------------------------------
+function fullRescan() {
+  if (!confirm('This will clear all tasks and re-check all emails from 1 April with AI. Continue?')) return;
+  STATE.tasks = [];
+  saveTasks();
+  renderBoard();
+  runScan();
+}
+
 async function runScan() {
   if (!STATE.token) return;
   var btn = document.getElementById('scan-btn');
@@ -325,19 +334,23 @@ async function runScan() {
 
   // 2. Filter ignored senders + already-seen emails
   var knownIds = new Set(STATE.tasks.map(function(t){ return t.id; }));
+  var ignoredEmails = emails.filter(function(em) { return isIgnored(em); });
+  var knownEmails = emails.filter(function(em) { return knownIds.has(em.id) && !isIgnored(em); });
   var toCheck = emails.filter(function(em) {
-    if (knownIds.has(em.id)) return false; // already processed
+    if (knownIds.has(em.id)) return false;
     return !isIgnored(em);
   });
 
-  showScanProgress(20, 'Filtering ' + emails.length + ' emails, ' + toCheck.length + ' to check with AI...');
+  document.getElementById('sbar-msg').textContent = 'Fetched: ' + emails.length + ' | Ignored: ' + ignoredEmails.length + ' | Already seen: ' + knownEmails.length + ' | To check: ' + toCheck.length;
+  showScanProgress(20, 'Fetched ' + emails.length + ' emails. Ignored: ' + ignoredEmails.length + ', To check: ' + toCheck.length);
 
-  // 3. AI check each email
+  // 3. Smart rule-based filtering
   var newTasks = [];
+  var rejectedLog = [];
   for (var i = 0; i < toCheck.length; i++) {
     var em = toCheck[i];
-    showScanProgress(20 + Math.round((i / toCheck.length) * 75), 'AI checking ' + (i+1) + ' of ' + toCheck.length + ': ' + truncate(em.subject, 40));
-    var result = await aiCheck(em);
+    showScanProgress(20 + Math.round((i / toCheck.length) * 75), 'Checking ' + (i+1) + ' of ' + toCheck.length + '...');
+    var result = smartCheck(em);
     if (result.actionable) {
       newTasks.push({
         id: em.id,
@@ -348,8 +361,19 @@ async function runScan() {
         aiNote: result.reason,
         seenAt: Date.now()
       });
+    } else {
+      rejectedLog.push((em.from && em.from.emailAddress && em.from.emailAddress.name) + ' | ' + em.subject + ' => ' + result.reason);
     }
   }
+  console.log('=== INBOX TASKS DEBUG ===');
+  console.log('Total fetched:', emails.length);
+  console.log('Ignored by ignore list:', ignoredEmails.length);
+  console.log('Already known:', knownEmails.length);
+  console.log('Checked:', toCheck.length);
+  console.log('New tasks found:', newTasks.length);
+  console.log('Rejected by smartCheck:', rejectedLog.length);
+  rejectedLog.forEach(function(r){ console.log('  REJECTED:', r); });
+  window.__debugLog = rejectedLog;
 
   // 4. Add new tasks and save
   STATE.tasks = STATE.tasks.concat(newTasks);
@@ -363,26 +387,55 @@ async function runScan() {
   renderBoard();
 }
 
-async function aiCheck(email) {
-  try {
-    var prompt = 'You are an email triage assistant for a financial professional at Delin Capital (a property investment firm). Decide if this email requires a personal response or action.\n\nFrom: ' + ((email.from && email.from.emailAddress && (email.from.emailAddress.name || email.from.emailAddress.address)) || 'Unknown') + '\nSubject: ' + (email.subject || '') + '\nPreview: ' + (email.bodyPreview || '') + '\n\nRespond with JSON only, no other text: {"actionable": true/false, "reason": "one short sentence why or why not"}.\n\nMark as NOT actionable if: newsletter, automated notification, marketing, FYI-only, receipt, calendar invite auto-response, or no reply needed.\nMark as actionable if: requires a reply, decision, follow-up, approval, or personal attention.';
+function smartCheck(email) {
+  var from = ((email.from && email.from.emailAddress && (email.from.emailAddress.address)) || '').toLowerCase();
+  var name = ((email.from && email.from.emailAddress && (email.from.emailAddress.name)) || '').toLowerCase();
+  var subj = (email.subject || '').toLowerCase();
+  var prev = (email.bodyPreview || '').toLowerCase();
 
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    var data = await resp.json();
-    var text = (data.content && data.content[0] && data.content[0].text) || '{"actionable":false,"reason":"Could not determine"}';
-    var clean = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(clean);
-  } catch(e) {
-    return { actionable: false, reason: 'AI check failed' };
+  // Automated sender patterns - not actionable
+  var autoPatterns = [
+    'noreply', 'no-reply', 'donotreply', 'do-not-reply', 'mailer-daemon',
+    'notifications@', 'notify@', 'alerts@', 'billing@', 'invoice@',
+    'support@', 'hello@', 'info@', 'news@', 'updates@', 'newsletter',
+    'automated', 'system@', 'admin@', 'postmaster@'
+  ];
+  for (var i = 0; i < autoPatterns.length; i++) {
+    if (from.includes(autoPatterns[i])) return { actionable: false, reason: 'Automated sender' };
   }
+
+  // Subject patterns - not actionable
+  var notActionableSubj = [
+    'unsubscribe', 'newsletter', 'digest', 'weekly update', 'monthly update',
+    'your receipt', 'your invoice', 'payment confirmation', 'order confirmed',
+    'invoice #', 'statement of', 'automatic reply', 'out of office',
+    'you have been added', 'has shared', 'invitation to', 'you\'re invited',
+    'notification', 'alert:', 'reminder:', '[automated]', 'fyi:'
+  ];
+  for (var j = 0; j < notActionableSubj.length; j++) {
+    if (subj.includes(notActionableSubj[j])) return { actionable: false, reason: 'Automated or informational' };
+  }
+
+  // Strong actionable signals in subject
+  var actionableSubj = [
+    'reply', 're:', 'fw:', 'fwd:', 'call', 'meeting', 'urgent', 'action required',
+    'please', 'could you', 'can you', 'question', 'request', 'follow up', 'follow-up',
+    'invoice', 'payment', 'sign', 'approve', 'review', 'feedback', 'confirm',
+    'proposal', 'contract', 'agreement', 'term sheet', 'due diligence', 'update needed'
+  ];
+  for (var k = 0; k < actionableSubj.length; k++) {
+    if (subj.includes(actionableSubj[k])) return { actionable: true, reason: 'Likely needs attention' };
+  }
+
+  // Preview signals
+  var actionablePrev = ['please', 'could you', 'can you', 'let me know', 'your thoughts',
+    'get back', 'reply', 'respond', 'call', 'discuss', 'meeting', 'availability'];
+  for (var l = 0; l < actionablePrev.length; l++) {
+    if (prev.includes(actionablePrev[l])) return { actionable: true, reason: 'Likely needs a reply' };
+  }
+
+  // Default: if it got past ignore list and auto-sender checks, include it
+  return { actionable: true, reason: 'From a real contact' };
 }
 
 function isIgnored(email) {
