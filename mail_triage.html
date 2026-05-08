@@ -258,7 +258,10 @@ async function fetchPanel(p) {
   var panel = S[p];
   if (!panel.token) { renderAuth(p); return; }
   panel.status = 'loading'; renderBody(p);
-  var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=75&$orderby=receivedDateTime desc&$filter=receivedDateTime ge 2026-01-01T00:00:00Z&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
+  var now = new Date();
+  var cutoff = new Date(Math.max(new Date('2026-01-01').getTime(), now.getTime() - (30 * 24 * 60 * 60 * 1000)));
+  var cutoffStr = cutoff.toISOString().split('.')[0] + 'Z';
+  var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=100&$orderby=receivedDateTime desc&$filter=receivedDateTime ge ' + cutoffStr + ' and isDraft eq false&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
   try {
     var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + panel.token } });
     if (!res.ok) {
