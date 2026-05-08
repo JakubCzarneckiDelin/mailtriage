@@ -16,6 +16,7 @@
     --green: #1a4a2e;
     --muted: #6b6560;
     --col-todo: #0f0f0f;
+    --col-high: #6b0000;
     --col-out: #8b1a1a;
     --col-done: #1a4a2e;
   }
@@ -91,14 +92,16 @@
   .ignore-add:hover { border-color: var(--ink); color: var(--ink); }
 
   /* KANBAN */
-  .board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; flex: 1; min-height: calc(100vh - 130px); }
+  .board { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0; flex: 1; min-height: calc(100vh - 130px); }
   .col { display: flex; flex-direction: column; border-right: 1px solid var(--rule); }
   .col:last-child { border-right: none; }
   .col-todo-bg { background: #fffbf0; }
+  .col-high-bg { background: #fff0f0; }
   .col-out-bg { background: #fff5f5; }
   .col-done-bg { background: #f2faf5; }
   .col-head { padding: 1rem 1.25rem 0.75rem; border-bottom: 2px solid; position: sticky; top: 52px; z-index: 40; display: flex; align-items: baseline; justify-content: space-between; }
   .col-head-todo { border-bottom-color: var(--col-todo); background: #fffbf0; }
+  .col-head-high { border-bottom-color: var(--col-high); background: #fff0f0; }
   .col-head-out { border-bottom-color: var(--col-out); background: #fff5f5; }
   .col-head-done { border-bottom-color: var(--col-done); background: #f2faf5; }
   .col-name { font-family: 'Libre Baskerville', serif; font-size: 1rem; font-weight: 700; }
@@ -112,6 +115,7 @@
     position: relative;
   }
   .task-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .task-card.col-high-card { border-left: 3px solid var(--col-high); }
   .task-card.col-out-card { border-left: 3px solid var(--red); }
   .task-card.col-done-card { opacity: 0.55; }
   .task-card.col-done-card:hover { opacity: 0.8; }
@@ -126,6 +130,8 @@
     flex: 1; padding: 0.28rem 0.4rem; border: 1px solid; font-family: 'IBM Plex Sans', sans-serif;
     font-size: 0.62rem; cursor: pointer; font-weight: 500; transition: all 0.12s; text-align: center;
   }
+  .tbtn-high { border-color: var(--col-high); color: white; background: var(--col-high); }
+  .tbtn-high:hover { background: #4a0000; border-color: #4a0000; }
   .tbtn-out { border-color: var(--red); color: var(--red); background: transparent; }
   .tbtn-out:hover, .tbtn-out.active { background: var(--red); color: white; }
   .tbtn-done { border-color: var(--green); color: var(--green); background: transparent; }
@@ -190,6 +196,7 @@
 
   <div class="statusbar">
     <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-todo)"></div><span class="sbar-n" id="st-todo">0</span><span>to do</span></div>
+    <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-high)"></div><span class="sbar-n" id="st-high">0</span><span>high priority</span></div>
     <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-out)"></div><span class="sbar-n" id="st-out">0</span><span>outstanding</span></div>
     <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-done)"></div><span class="sbar-n" id="st-done">0</span><span>done</span></div>
     <div class="sbar-msg" id="sbar-msg"></div>
@@ -213,6 +220,13 @@
         <div class="col-count" id="cnt-todo">0</div>
       </div>
       <div class="col-body col-todo-bg" id="col-todo"></div>
+    </div>
+    <div class="col">
+      <div class="col-head col-head-high">
+        <div class="col-name">High Priority</div>
+        <div class="col-count" id="cnt-high">0</div>
+      </div>
+      <div class="col-body col-high-bg" id="col-high"></div>
     </div>
     <div class="col">
       <div class="col-head col-head-out">
@@ -541,32 +555,46 @@ function purgeDoneTasks() {
 // -- RENDER ------------------------------------------
 function renderBoard() {
   var todo = STATE.tasks.filter(function(t){ return t.status === 'todo'; });
+  var high = STATE.tasks.filter(function(t){ return t.status === 'high'; });
   var out  = STATE.tasks.filter(function(t){ return t.status === 'outstanding'; });
   var done = STATE.tasks.filter(function(t){ return t.status === 'done'; });
 
   document.getElementById('cnt-todo').textContent = todo.length;
+  document.getElementById('cnt-high').textContent = high.length;
   document.getElementById('cnt-out').textContent = out.length;
   document.getElementById('cnt-done').textContent = done.length;
   document.getElementById('st-todo').textContent = todo.length;
+  document.getElementById('st-high').textContent = high.length;
   document.getElementById('st-out').textContent = out.length;
   document.getElementById('st-done').textContent = done.length;
 
   document.getElementById('col-todo').innerHTML = renderCol(todo, 'todo');
+  document.getElementById('col-high').innerHTML = renderCol(high, 'high');
   document.getElementById('col-out').innerHTML = renderCol(out, 'out');
   document.getElementById('col-done').innerHTML = renderCol(done, 'done');
 }
 
 function renderCol(tasks, colType) {
   if (!tasks.length) {
-    var msgs = { todo: ['All clear', 'No pending tasks'], out: ['Nothing outstanding', 'All caught up'], done: ['Nothing done yet', 'Complete tasks will appear here'] };
+    var msgs = {
+      todo: ['All clear', 'No pending tasks'],
+      high: ['None', 'No high priority tasks'],
+      out: ['Nothing outstanding', 'All caught up'],
+      done: ['Nothing done yet', 'Complete tasks will appear here']
+    };
     var m = msgs[colType];
-    return '<div class="col-empty"><div class="col-empty-icon">' + (colType==='done'?'&#10003;':colType==='out'?'&#9888;':'&#9749;') + '</div><div class="col-empty-t">' + m[0] + '</div><div style="font-size:0.72rem;margin-top:0.3rem;color:var(--muted)">' + m[1] + '</div></div>';
+    var icon = colType==='done'?'&#10003;':colType==='high'?'&#9888;':colType==='out'?'&#9888;':'&#9749;';
+    return '<div class="col-empty"><div class="col-empty-icon">' + icon + '</div><div class="col-empty-t">' + m[0] + '</div><div style="font-size:0.72rem;margin-top:0.3rem;color:var(--muted)">' + m[1] + '</div></div>';
   }
   return tasks.map(function(t) {
-    var cardClass = 'task-card' + (colType==='out'?' col-out-card':'') + (colType==='done'?' col-done-card':'');
+    var cardClass = 'task-card' + (colType==='high'?' col-high-card':'') + (colType==='out'?' col-out-card':'') + (colType==='done'?' col-done-card':'');
     var actions = '';
     if (colType === 'todo') {
-      actions = '<button class="task-btn tbtn-out" onclick="moveTask(\'' + t.id + '\',\'outstanding\')">Outstanding</button>' +
+      actions = '<button class="task-btn tbtn-high" onclick="moveTask(\'' + t.id + '\',\'high\')">High Priority</button>' +
+                '<button class="task-btn tbtn-out" onclick="moveTask(\'' + t.id + '\',\'outstanding\')">Outstanding</button>' +
+                '<button class="task-btn tbtn-done" onclick="moveTask(\'' + t.id + '\',\'done\')">Done</button>';
+    } else if (colType === 'high') {
+      actions = '<button class="task-btn tbtn-todo" onclick="moveTask(\'' + t.id + '\',\'todo\')">Back to To Do</button>' +
                 '<button class="task-btn tbtn-done" onclick="moveTask(\'' + t.id + '\',\'done\')">Done</button>';
     } else if (colType === 'out') {
       actions = '<button class="task-btn tbtn-todo" onclick="moveTask(\'' + t.id + '\',\'todo\')">Back to To Do</button>' +
