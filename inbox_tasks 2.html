@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inbox Tasks - Delin Capital</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0f0f;
+    --paper: #f7f4ef;
+    --cream: #eee9e0;
+    --rule: #d8d2c8;
+    --gold: #b8860b;
+    --red: #8b1a1a;
+    --green: #1a4a2e;
+    --muted: #6b6560;
+    --col-todo: #0f0f0f;
+    --col-out: #8b1a1a;
+    --col-done: #1a4a2e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; }
+
+  /* -- AUTH SCREEN -- */
+  #auth-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 2rem; background: var(--ink);
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px);
+  }
+  .auth-card {
+    background: var(--paper); max-width: 440px; width: 100%;
+    padding: 3rem 2.5rem; border-top: 4px solid var(--gold);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+  }
+  .auth-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; }
+  .auth-title { font-family: 'Libre Baskerville', serif; font-size: 1.9rem; font-weight: 700; line-height: 1.2; margin-bottom: 0.4rem; }
+  .auth-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 2rem; line-height: 1.5; }
+  .field-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; display: block; }
+  .field-input {
+    width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--rule);
+    background: white; font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem;
+    color: var(--ink); margin-bottom: 1rem; transition: border-color 0.15s;
+  }
+  .field-input:focus { outline: none; border-color: var(--ink); }
+  .ignore-note { font-size: 0.75rem; color: var(--muted); background: var(--cream); padding: 0.65rem 0.85rem; border-left: 2px solid var(--rule); margin-bottom: 1.5rem; line-height: 1.5; }
+  .ignore-note strong { color: var(--ink); }
+  .btn-signin {
+    width: 100%; padding: 0.85rem; background: var(--ink); color: var(--paper);
+    border: none; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.88rem;
+    font-weight: 500; cursor: pointer; letter-spacing: 0.02em; transition: background 0.15s;
+  }
+  .btn-signin:hover { background: #1a1a1a; }
+
+  /* -- APP -- */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+
+  .topbar {
+    background: var(--ink); padding: 0 2rem;
+    display: flex; align-items: stretch; justify-content: space-between;
+    border-bottom: 2px solid var(--gold); position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-brand { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 0; }
+  .topbar-title { font-family: 'Libre Baskerville', serif; font-size: 1.1rem; color: var(--paper); font-weight: 700; }
+  .topbar-sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: rgba(247,244,239,0.4); letter-spacing: 0.08em; }
+  .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .tbar-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(247,244,239,0.7);
+    padding: 0.35rem 0.8rem; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.75rem;
+    cursor: pointer; transition: all 0.15s; height: 100%; display: flex; align-items: center;
+  }
+  .tbar-btn:hover { background: rgba(255,255,255,0.08); color: var(--paper); }
+  .tbar-btn.scanning { color: var(--gold); border-color: var(--gold); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* STATUS BAR */
+  .statusbar { background: var(--cream); border-bottom: 1px solid var(--rule); padding: 0.5rem 2rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .sbar-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--muted); }
+  .sbar-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .sbar-n { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 500; color: var(--ink); }
+  .sbar-msg { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-left: auto; }
+
+  /* IGNORE MANAGER */
+  .ignore-bar { background: white; border-bottom: 1px solid var(--rule); padding: 0.5rem 2rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .ignore-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; }
+  .ignore-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; }
+  .ignore-tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; background: var(--cream); border: 1px solid var(--rule); padding: 0.18rem 0.5rem; display: flex; align-items: center; gap: 0.35rem; color: var(--ink); }
+  .ignore-tag-x { cursor: pointer; color: var(--muted); font-size: 0.75rem; line-height: 1; }
+  .ignore-tag-x:hover { color: var(--red); }
+  .ignore-add { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; border: 1px dashed var(--rule); background: transparent; padding: 0.18rem 0.6rem; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .ignore-add:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* KANBAN */
+  .board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; flex: 1; min-height: calc(100vh - 130px); }
+  .col { display: flex; flex-direction: column; border-right: 1px solid var(--rule); }
+  .col:last-child { border-right: none; }
+  .col-head { padding: 1rem 1.25rem 0.75rem; border-bottom: 2px solid; position: sticky; top: 52px; background: var(--paper); z-index: 40; display: flex; align-items: baseline; justify-content: space-between; }
+  .col-head-todo { border-bottom-color: var(--col-todo); }
+  .col-head-out { border-bottom-color: var(--col-out); }
+  .col-head-done { border-bottom-color: var(--col-done); }
+  .col-name { font-family: 'Libre Baskerville', serif; font-size: 1rem; font-weight: 700; }
+  .col-count { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+  .col-body { padding: 0.85rem; flex: 1; }
+
+  /* TASK CARD */
+  .task-card {
+    background: white; border: 1px solid var(--rule); padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem; transition: box-shadow 0.15s, transform 0.15s;
+    position: relative;
+  }
+  .task-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .task-card.col-out-card { border-left: 3px solid var(--red); }
+  .task-card.col-done-card { opacity: 0.55; }
+  .task-card.col-done-card:hover { opacity: 0.8; }
+  .task-from { font-size: 0.72rem; font-weight: 500; color: var(--muted); margin-bottom: 0.25rem; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-subject { font-size: 0.82rem; color: var(--ink); line-height: 1.35; margin-bottom: 0.55rem; }
+  .task-ai-note { font-size: 0.68rem; color: var(--gold); font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.55rem; line-height: 1.4; font-style: italic; }
+  .task-meta { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.6rem; }
+  .task-mb { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; background: var(--cream); padding: 0.1rem 0.35rem; color: var(--muted); }
+  .task-time { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--muted); margin-left: auto; }
+  .task-actions { display: flex; gap: 0.3rem; }
+  .task-btn {
+    flex: 1; padding: 0.28rem 0.4rem; border: 1px solid; font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.62rem; cursor: pointer; font-weight: 500; transition: all 0.12s; text-align: center;
+  }
+  .tbtn-out { border-color: var(--red); color: var(--red); background: transparent; }
+  .tbtn-out:hover, .tbtn-out.active { background: var(--red); color: white; }
+  .tbtn-done { border-color: var(--green); color: var(--green); background: transparent; }
+  .tbtn-done:hover { background: var(--green); color: white; }
+  .tbtn-todo { border-color: var(--rule); color: var(--muted); background: transparent; }
+  .tbtn-todo:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* STATES */
+  .col-empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); }
+  .col-empty-icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
+  .col-empty-t { font-family: 'Libre Baskerville', serif; font-size: 0.9rem; font-style: italic; }
+  .col-loading { display: flex; flex-direction: column; align-items: center; padding: 2rem; gap: 0.6rem; }
+  .spinner { width: 24px; height: 24px; border: 2px solid var(--rule); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); text-align: center; }
+
+  .scan-progress { padding: 0.5rem 2rem; background: var(--cream); border-bottom: 1px solid var(--rule); display: none; }
+  .scan-bar { height: 2px; background: var(--rule); border-radius: 1px; overflow: hidden; }
+  .scan-fill { height: 100%; background: var(--gold); transition: width 0.3s; width: 0; }
+  .scan-text { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted); margin-top: 0.3rem; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-eyebrow">Delin Capital</div>
+    <div class="auth-title">Inbox Tasks</div>
+    <div class="auth-sub">AI reads your inbox and converts emails that need action into tasks. Marketing and newsletters are ignored automatically.</div>
+
+    <label class="field-label">Azure AD Client ID</label>
+    <input class="field-input" type="text" id="cid" value="5638aa8c-5ffe-42da-a97e-a19b00a5d41d">
+
+    <label class="field-label">Mailbox</label>
+    <input class="field-input" type="email" id="email" value="Jakub.Czarnecki@delincapital.com">
+
+    <div class="ignore-note">
+      <strong>Always ignored:</strong> Bloomberg, FT, Financial Times, LinkedIn, Eventbrite, AWS, newsletters and marketing.<br>
+      You can add more senders to ignore after signing in.
+    </div>
+
+    <button class="btn-signin" onclick="startAuth()">Sign in with Microsoft</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div>
+        <div class="topbar-title">Inbox Tasks</div>
+        <div class="topbar-sub" id="topbar-email"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="tbar-btn" id="scan-btn" onclick="runScan()">Scan inbox</button>
+      <button class="tbar-btn" onclick="fullRescan()">Full rescan</button>
+      <button class="tbar-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-todo)"></div><span class="sbar-n" id="st-todo">0</span><span>to do</span></div>
+    <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-out)"></div><span class="sbar-n" id="st-out">0</span><span>outstanding</span></div>
+    <div class="sbar-item"><div class="sbar-dot" style="background:var(--col-done)"></div><span class="sbar-n" id="st-done">0</span><span>done</span></div>
+    <div class="sbar-msg" id="sbar-msg"></div>
+  </div>
+
+  <div class="ignore-bar">
+    <div class="ignore-label">Ignoring</div>
+    <div class="ignore-tags" id="ignore-tags"></div>
+    <button class="ignore-add" onclick="addIgnore()">+ Add sender</button>
+  </div>
+
+  <div class="scan-progress" id="scan-progress">
+    <div class="scan-bar"><div class="scan-fill" id="scan-fill"></div></div>
+    <div class="scan-text" id="scan-text">Scanning...</div>
+  </div>
+
+  <div class="board">
+    <div class="col">
+      <div class="col-head col-head-todo">
+        <div class="col-name">To Do</div>
+        <div class="col-count" id="cnt-todo">0</div>
+      </div>
+      <div class="col-body" id="col-todo"></div>
+    </div>
+    <div class="col">
+      <div class="col-head col-head-out">
+        <div class="col-name">Outstanding</div>
+        <div class="col-count" id="cnt-out">0</div>
+      </div>
+      <div class="col-body" id="col-out"></div>
+    </div>
+    <div class="col">
+      <div class="col-head col-head-done">
+        <div class="col-name">Done</div>
+        <div class="col-count" id="cnt-done">0</div>
+      </div>
+      <div class="col-body" id="col-done"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// -- STATE -------------------------------------------
+var STATE = {
+  token: null,
+  clientId: '',
+  email: '',
+  tasks: [],       // { id, from, subject, time, status, aiNote, seenAt }
+  ignoreList: ['bloomberg', 'financial times', 'ft.com', 'linkedin', 'eventbrite', 'aws', 'amazon web services', 'noreply', 'no-reply', 'newsletter', 'marketing', 'donotreply', 'do-not-reply']
+};
+
+// -- AUTH --------------------------------------------
+function startAuth() {
+  var cid = document.getElementById('cid').value.trim();
+  var em = document.getElementById('email').value.trim();
+  if (!cid || !em) { alert('Please fill in Client ID and email.'); return; }
+  STATE.clientId = cid; STATE.email = em;
+  sessionStorage.setItem('it_cfg', JSON.stringify({ clientId: cid, email: em }));
+  var ru = encodeURIComponent(location.href.split('?')[0].split('#')[0]);
+  var sc = encodeURIComponent('https://graph.microsoft.com/Mail.Read offline_access');
+  location.href = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=' + cid + '&response_type=token&redirect_uri=' + ru + '&scope=' + sc + '&response_mode=fragment&prompt=select_account&login_hint=' + encodeURIComponent(em);
+}
+
+function checkToken() {
+  var hash = location.hash;
+  if (!hash.includes('access_token=')) {
+    if (hash.includes('error=')) { var p = new URLSearchParams(hash.slice(1)); alert('Auth error: ' + (p.get('error_description') || p.get('error'))); }
+    return false;
+  }
+  var token = new URLSearchParams(hash.slice(1)).get('access_token');
+  var cfg = JSON.parse(sessionStorage.getItem('it_cfg') || '{}');
+  if (!token || !cfg.clientId) return false;
+  STATE.token = token; STATE.clientId = cfg.clientId; STATE.email = cfg.email;
+  history.replaceState(null, '', location.pathname + location.search);
+  showApp(); runScan();
+  return true;
+}
+
+function restore() {
+  var cfg = JSON.parse(sessionStorage.getItem('it_cfg') || '{}');
+  var tok = sessionStorage.getItem('it_tok');
+  if (cfg.clientId && tok) {
+    STATE.token = tok; STATE.clientId = cfg.clientId; STATE.email = cfg.email;
+    loadTasks(); loadIgnore();
+    showApp(); renderBoard();
+    document.getElementById('sbar-msg').textContent = 'Loaded from last session. Click Scan to refresh.';
+    return true;
+  }
+  if (cfg.clientId) {
+    document.getElementById('cid').value = cfg.clientId || '';
+    document.getElementById('email').value = cfg.email || '';
+  }
+  return false;
+}
+
+function signOut() { sessionStorage.clear(); location.reload(); }
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('topbar-email').textContent = STATE.email;
+  sessionStorage.setItem('it_tok', STATE.token);
+  loadTasks(); loadIgnore(); renderIgnoreTags();
+}
+
+// -- SCAN --------------------------------------------
+function fullRescan() {
+  if (!confirm('This will clear all tasks and re-check all emails from 1 April with AI. Continue?')) return;
+  STATE.tasks = [];
+  saveTasks();
+  renderBoard();
+  runScan();
+}
+
+async function runScan() {
+  if (!STATE.token) return;
+  var btn = document.getElementById('scan-btn');
+  btn.textContent = 'Scanning...'; btn.classList.add('scanning');
+  showScanProgress(0, 'Fetching inbox...');
+
+  // 1. Fetch inbox
+  var emails = [];
+  try {
+    var now = new Date();
+    var cutoff = new Date('2026-04-01T00:00:00Z');
+    var cutoffStr = cutoff.toISOString().split('.')[0] + 'Z';
+    var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=200&$orderby=receivedDateTime desc&$filter=receivedDateTime ge ' + cutoffStr + ' and isDraft eq false&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
+    var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + STATE.token } });
+    if (!res.ok) {
+      var err = await res.json().catch(function(){return {};});
+      var msg = (err.error && err.error.message) || res.statusText;
+      if (res.status === 401 || msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('lifetime')) {
+        STATE.token = null; sessionStorage.removeItem('it_tok');
+        showExpired(); return;
+      }
+      throw new Error(msg);
+    }
+    var data = await res.json();
+    emails = data.value || [];
+  } catch(e) {
+    document.getElementById('sbar-msg').textContent = 'Error: ' + e.message;
+    btn.textContent = 'Scan inbox'; btn.classList.remove('scanning');
+    hideScanProgress(); return;
+  }
+
+  // 2. Filter ignored senders + already-seen emails
+  var knownIds = new Set(STATE.tasks.map(function(t){ return t.id; }));
+  var toCheck = emails.filter(function(em) {
+    if (knownIds.has(em.id)) return false; // already processed
+    return !isIgnored(em);
+  });
+
+  showScanProgress(20, 'Filtering ' + emails.length + ' emails, ' + toCheck.length + ' to check with AI...');
+
+  // 3. AI check each email
+  var newTasks = [];
+  for (var i = 0; i < toCheck.length; i++) {
+    var em = toCheck[i];
+    showScanProgress(20 + Math.round((i / toCheck.length) * 75), 'AI checking ' + (i+1) + ' of ' + toCheck.length + ': ' + truncate(em.subject, 40));
+    var result = await aiCheck(em);
+    if (result.actionable) {
+      newTasks.push({
+        id: em.id,
+        from: (em.from && em.from.emailAddress && (em.from.emailAddress.name || em.from.emailAddress.address)) || 'Unknown',
+        subject: em.subject || '(no subject)',
+        time: em.receivedDateTime,
+        status: 'todo',
+        aiNote: result.reason,
+        seenAt: Date.now()
+      });
+    }
+  }
+
+  // 4. Add new tasks and save
+  STATE.tasks = STATE.tasks.concat(newTasks);
+  saveTasks();
+  showScanProgress(100, 'Done. ' + newTasks.length + ' new tasks found.');
+  setTimeout(hideScanProgress, 2000);
+
+  var d = new Date();
+  document.getElementById('sbar-msg').textContent = 'Last scanned ' + d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) + ' - ' + newTasks.length + ' new tasks added';
+  btn.textContent = 'Scan inbox'; btn.classList.remove('scanning');
+  renderBoard();
+}
+
+async function aiCheck(email) {
+  try {
+    var from = (email.from && email.from.emailAddress && (email.from.emailAddress.name || email.from.emailAddress.address)) || 'Unknown';
+    var prompt = 'You are an email triage assistant for Jakub Czarnecki, a financial controller at Delin Capital (a UK property investment firm managing multiple entities). Your job is to identify emails that need Jakub\'s personal attention.\n\nFrom: ' + from + '\nSubject: ' + (email.subject || '') + '\nPreview: ' + (email.bodyPreview || '') + '\n\nRespond with JSON only, no other text: {"actionable": true/false, "reason": "one short sentence"}\n\nMark as ACTIONABLE (true) if any of these apply:\n- Sent by a real person (colleague, client, lawyer, accountant, advisor, counterparty)\n- Asks a question or requests information\n- Needs a reply, approval, decision, or follow-up\n- Contains an invoice, payment request, or financial matter\n- Legal or compliance matter\n- Meeting request or scheduling\n- Document review or signature needed\n- Project update that may need a response\n\nMark as NOT actionable (false) ONLY if clearly:\n- Automated system notification with no action needed\n- Pure marketing or promotional email\n- Newsletter or press digest (Bloomberg, FT, etc)\n- Automated receipt or confirmation\n- Calendar auto-response\n\nWhen in doubt, mark as ACTIONABLE. It is better to show too many tasks than miss something important.';
+
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    var data = await resp.json();
+    var text = (data.content && data.content[0] && data.content[0].text) || '{"actionable":true,"reason":"Could not determine - included by default"}';
+    var clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch(e) {
+    return { actionable: true, reason: 'AI check failed - included by default' };
+  }
+}
+
+function isIgnored(email) {
+  var from = ((email.from && email.from.emailAddress && (email.from.emailAddress.name || email.from.emailAddress.address)) || '').toLowerCase();
+  var subj = (email.subject || '').toLowerCase();
+  return STATE.ignoreList.some(function(ig) {
+    return from.includes(ig) || subj.includes(ig);
+  });
+}
+
+// -- IGNORE LIST -------------------------------------
+function addIgnore() {
+  var val = prompt('Enter sender name or domain to ignore (e.g. "Bloomberg" or "bloomberg.com"):');
+  if (!val || !val.trim()) return;
+  STATE.ignoreList.push(val.trim().toLowerCase());
+  saveIgnore(); renderIgnoreTags();
+}
+function removeIgnore(idx) {
+  STATE.ignoreList.splice(idx, 1);
+  saveIgnore(); renderIgnoreTags();
+}
+function saveIgnore() { try { localStorage.setItem('it_ignore', JSON.stringify(STATE.ignoreList)); } catch(e) {} }
+function loadIgnore() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('it_ignore') || 'null');
+    if (saved) STATE.ignoreList = saved;
+  } catch(e) {}
+}
+function renderIgnoreTags() {
+  var container = document.getElementById('ignore-tags');
+  container.innerHTML = STATE.ignoreList.map(function(ig, i) {
+    return '<div class="ignore-tag">' + esc(ig) + '<span class="ignore-tag-x" onclick="removeIgnore(' + i + ')">x</span></div>';
+  }).join('');
+}
+
+// -- TASKS STORAGE -----------------------------------
+function saveTasks() { try { localStorage.setItem('it_tasks', JSON.stringify(STATE.tasks)); } catch(e) {} }
+function loadTasks() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('it_tasks') || 'null');
+    if (saved) STATE.tasks = saved;
+  } catch(e) {}
+}
+
+// -- TASK ACTIONS ------------------------------------
+function moveTask(id, status) {
+  var t = STATE.tasks.find(function(x){ return x.id === id; });
+  if (!t) return;
+  if (status === 'done') {
+    t.status = 'done';
+    // Remove after short delay so user sees it move
+    setTimeout(function() {
+      STATE.tasks = STATE.tasks.filter(function(x){ return x.id !== id; });
+      saveTasks(); renderBoard();
+    }, 800);
+  } else {
+    t.status = status;
+  }
+  saveTasks(); renderBoard();
+}
+
+// -- RENDER ------------------------------------------
+function renderBoard() {
+  var todo = STATE.tasks.filter(function(t){ return t.status === 'todo'; });
+  var out  = STATE.tasks.filter(function(t){ return t.status === 'outstanding'; });
+  var done = STATE.tasks.filter(function(t){ return t.status === 'done'; });
+
+  document.getElementById('cnt-todo').textContent = todo.length;
+  document.getElementById('cnt-out').textContent = out.length;
+  document.getElementById('cnt-done').textContent = done.length;
+  document.getElementById('st-todo').textContent = todo.length;
+  document.getElementById('st-out').textContent = out.length;
+  document.getElementById('st-done').textContent = done.length;
+
+  document.getElementById('col-todo').innerHTML = renderCol(todo, 'todo');
+  document.getElementById('col-out').innerHTML = renderCol(out, 'out');
+  document.getElementById('col-done').innerHTML = renderCol(done, 'done');
+}
+
+function renderCol(tasks, colType) {
+  if (!tasks.length) {
+    var msgs = { todo: ['All clear', 'No pending tasks'], out: ['Nothing outstanding', 'All caught up'], done: ['Nothing done yet', 'Complete tasks will appear here'] };
+    var m = msgs[colType];
+    return '<div class="col-empty"><div class="col-empty-icon">' + (colType==='done'?'&#10003;':colType==='out'?'&#9888;':'&#9749;') + '</div><div class="col-empty-t">' + m[0] + '</div><div style="font-size:0.72rem;margin-top:0.3rem;color:var(--muted)">' + m[1] + '</div></div>';
+  }
+  return tasks.map(function(t) {
+    var cardClass = 'task-card' + (colType==='out'?' col-out-card':'') + (colType==='done'?' col-done-card':'');
+    var actions = '';
+    if (colType === 'todo') {
+      actions = '<button class="task-btn tbtn-out" onclick="moveTask(\'' + t.id + '\',\'outstanding\')">Outstanding</button>' +
+                '<button class="task-btn tbtn-done" onclick="moveTask(\'' + t.id + '\',\'done\')">Done</button>';
+    } else if (colType === 'out') {
+      actions = '<button class="task-btn tbtn-todo" onclick="moveTask(\'' + t.id + '\',\'todo\')">Back to To Do</button>' +
+                '<button class="task-btn tbtn-done" onclick="moveTask(\'' + t.id + '\',\'done\')">Done</button>';
+    } else {
+      actions = '<button class="task-btn tbtn-todo" onclick="moveTask(\'' + t.id + '\',\'todo\')">Reopen</button>';
+    }
+    return '<div class="' + cardClass + '">' +
+      '<div class="task-from">' + esc(t.from) + '</div>' +
+      '<div class="task-subject">' + esc(t.subject) + '</div>' +
+      (t.aiNote ? '<div class="task-ai-note">AI: ' + esc(t.aiNote) + '</div>' : '') +
+      '<div class="task-meta"><div class="task-time">' + fmt(t.time) + '</div></div>' +
+      '<div class="task-actions">' + actions + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// -- SCAN PROGRESS ------------------------------------
+function showScanProgress(pct, msg) {
+  document.getElementById('scan-progress').style.display = 'block';
+  document.getElementById('scan-fill').style.width = pct + '%';
+  document.getElementById('scan-text').textContent = msg;
+}
+function hideScanProgress() { document.getElementById('scan-progress').style.display = 'none'; }
+
+function showExpired() {
+  document.getElementById('sbar-msg').textContent = 'Session expired - please sign in again';
+  document.getElementById('scan-btn').textContent = 'Scan inbox';
+  document.getElementById('scan-btn').classList.remove('scanning');
+  hideScanProgress();
+  setTimeout(function() {
+    if (confirm('Your Microsoft session has expired. Sign in again?')) {
+      sessionStorage.removeItem('it_tok');
+      var ru = encodeURIComponent(location.href.split('?')[0].split('#')[0]);
+      var sc = encodeURIComponent('https://graph.microsoft.com/Mail.Read offline_access');
+      location.href = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=' + STATE.clientId + '&response_type=token&redirect_uri=' + ru + '&scope=' + sc + '&response_mode=fragment&prompt=select_account&login_hint=' + encodeURIComponent(STATE.email);
+    }
+  }, 500);
+}
+
+// -- UTILS -------------------------------------------
+function fmt(iso) {
+  if (!iso) return '';
+  var d = new Date(iso), now = new Date();
+  return d.toDateString() === now.toDateString() ? d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function truncate(s, n) { return s && s.length > n ? s.substring(0,n) + '...' : s; }
+
+window.onload = function() { if (!checkToken()) restore(); };
+</script>
+</body>
+</html>
