@@ -318,7 +318,7 @@ async function runScan() {
     var now = new Date();
     var cutoff = new Date('2026-04-01T00:00:00Z');
     var cutoffStr = cutoff.toISOString().split('.')[0] + 'Z';
-    var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=200&$orderby=receivedDateTime desc&$filter=receivedDateTime ge ' + cutoffStr + ' and isDraft eq false&$select=id,subject,from,receivedDateTime,isRead,bodyPreview';
+    var url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=200&$orderby=receivedDateTime desc&$filter=receivedDateTime ge ' + cutoffStr + ' and isDraft eq false&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,conversationId';
     var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + STATE.token } });
     if (!res.ok) {
       var err = await res.json().catch(function(){return {};});
@@ -337,11 +337,26 @@ async function runScan() {
     hideScanProgress(); return;
   }
 
+  // Deduplicate by conversationId - keep only the most recent email per thread
+  // (emails are already ordered by receivedDateTime desc so first occurrence = most recent)
+  var seenConvIds = new Set();
+  emails = emails.filter(function(em) {
+    var convId = em.conversationId || em.id;
+    if (seenConvIds.has(convId)) return false;
+    seenConvIds.add(convId);
+    return true;
+  });
+
   // 2. Filter ignored senders + already-seen emails
+  // Use conversationId for deduplication so whole threads are treated as one
   var ignoredEmails = emails.filter(function(em) { return isIgnored(em); });
-  var knownEmails = emails.filter(function(em) { return STATE.seenIds.has(em.id) && !isIgnored(em); });
+  var knownEmails = emails.filter(function(em) {
+    var key = em.conversationId || em.id;
+    return STATE.seenIds.has(key) && !isIgnored(em);
+  });
   var toCheck = emails.filter(function(em) {
-    if (STATE.seenIds.has(em.id)) return false;
+    var key = em.conversationId || em.id;
+    if (STATE.seenIds.has(key)) return false;
     return !isIgnored(em);
   });
 
@@ -358,6 +373,7 @@ async function runScan() {
     if (result.actionable) {
       newTasks.push({
         id: em.id,
+        conversationId: em.conversationId || em.id,
         from: (em.from && em.from.emailAddress && (em.from.emailAddress.name || em.from.emailAddress.address)) || 'Unknown',
         subject: em.subject || '(no subject)',
         time: em.receivedDateTime,
@@ -379,8 +395,8 @@ async function runScan() {
   rejectedLog.forEach(function(r){ console.log('  REJECTED:', r); });
   window.__debugLog = rejectedLog;
 
-  // 4. Mark all checked emails as seen (regardless of actionable) and save
-  toCheck.forEach(function(em) { STATE.seenIds.add(em.id); });
+  // 4. Mark all checked emails as seen using conversationId and save
+  toCheck.forEach(function(em) { STATE.seenIds.add(em.conversationId || em.id); });
   saveSeenIds();
   STATE.tasks = STATE.tasks.concat(newTasks);
   saveTasks();
